@@ -1,0 +1,20 @@
+# Compiled python modules.
+*.pyc
+
+# fits images
+*.fits
+
+# old emacs copies
+*.*~
+
+# spyder project
+.spyderproject
+.spyproject
+
+# egg-info directory
+*.egg-info
+
+# directory old
+old
+build
+dist

@@ -1,0 +1,39 @@
+{% set name = "skymap" %}
+{% set data = load_setup_py_data() %}
+
+
+package:
+  name: "{{ name|lower }}"
+  version: "{{ data.get('version') }}"
+
+source:
+  git_tag: main
+  git_url: https://grit.stsci.edu/roman/skymap.git
+
+build:
+  
+requirements:
+  build:
+    - setuptools
+    - python
+
+
+  run:
+    - python >=3.11
+    - astropy>=5.3.4
+    - matplotlib>=3.8
+    - numpy>=1.26.0
+    - pip>=23.3
+    - scipy>=1.11.4
+    - healpy>=1.16.6
+    - jupyterlab>=4.0.11
+        
+test:
+  imports:
+    - sospex
+
+about:
+  home: https://grit.stsci.edu/roman/skymap
+  license: GPL3
+  license_file: LICENSE
+  description: 'The package is about skymap tessellation for Roman'
