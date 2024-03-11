@@ -14,8 +14,7 @@ conda activate skymap
 
 2. Clone the repository
 
-git clone https://grit.stsci.edu/roman/skymap.git
-
+git clone git clone git@github.com:darioflute/skymap.git
 
 3. Install:
 
