@@ -38,7 +38,7 @@ def romantessellation(NSIDE, radius=1):
     thetav = y2theta(yuvp)
    
     vertices = []
-    # First tessell is the polar cap
+    # First tile is the polar cap
     nphi = [225]
     ntheta = [90]
     thu = thetav[0]
@@ -74,6 +74,7 @@ def romantessellation(NSIDE, radius=1):
             vertices.append(ang2point(vtheta, vphi, radius))
         thu = thd
         
+    # Last tile: opposite polar cup
     nphi.append(135)
     ntheta.append(-90)
     ntheta = 90 - np.array(ntheta)        
@@ -104,7 +105,7 @@ def romantessellation(NSIDE, radius=1):
     hdu = fits.BinTableHDU.from_columns(coldefs)
     hdu.writeto('romantessellation.fits', overwrite='True')
 
-    return ntheta, nphi, vertices
+    return ntheta, nphi, ramin, ramax, decmin, decmax, vertices
 
 def doublepixelization(NSIDE, radius=1):
     # Double pixelization vertices for Healpix H=4
