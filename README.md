@@ -22,7 +22,7 @@ pip install -e skymap
 
 4. You should now be able to open a notebook and use the package.
 
-cd skymap/notebooks
+cd skymap/notebook
 
 jupyter-lab skymap_notebook.ipynb
 
