@@ -14,7 +14,7 @@ conda activate skymap
 
 2. Clone the repository
 
-git clone git clone git@github.com:darioflute/skymap.git
+git clone git@github.com:spacetelescope/skymap.git
 
 3. Install:
 
