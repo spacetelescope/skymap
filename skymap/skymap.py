@@ -359,3 +359,217 @@ def icosphere(recursion):
         triangles = faces
         
     return triangles
+
+
+def tiles2asdf(ntheta, nphi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=4800, border=100, outfile='skymap.asdf'):
+    """
+    Generate an asdf file with the metadata of all the skycell files for all the tiles.
+    Input:
+         ntheta        latitude of tile
+         nphi          longitude of tile
+         ramin, ramax  limits in RA of tile
+         decmin, decmax  limits in Declination of tile
+         pixsize       pixel size in arcsec (default is 0.055 arcsec)
+         cellsize      sky cell size in pixels (default is 4800)
+         border        border of sky cell overlapping adjacent cells in pixels (default is 100)
+         outfile       name of ASDF output file 
+    """
+    from astropy.wcs import WCS
+    import asdf
+    import numpy as np
+
+    # Structure of the cell metadata
+    wcs_cell_dtype = [
+        ('name', 'U16'),
+        ('ra_center', 'f8'),     # center of the cell
+        ('dec_center', 'f8'),    # center of the cell
+        ('orientat', 'f4'),      # orientation of the cell
+        ('x0_tile_center', 'f8'), # x coordinate from projection center in pixels [crpix1]
+        ('y0_tile_center', 'f8'), # y coordinate from projection center in pixels [crpix1]
+        ('ra_corn1', 'f8'),      # RA corner 1
+        ('dec_corn1', 'f8'),
+        ('ra_corn2', 'f8'),
+        ('dec_corn2', 'f8'),
+        ('ra_corn3', 'f8'),
+        ('dec_corn3', 'f8'),
+        ('ra_corn4', 'f8'),
+        ('dec_corn4', 'f8'),
+        ('pixel_scale', 'f4'),     # pixel scale in degrees
+        ('border', 'i4')           # size of border in pixels
+    ]
+
+    # Structure of the tile metadata
+    wcs_tile_dtype = [
+        ('tile_index', 'i4'),
+        ('ra_tile_center', 'f8'),      # RA tile center  [crval1]
+        ('dec_tile_center', 'f8'),     # Dec tile center [crval2]
+        ('orientat_tile', 'f4'),       # Orientation projection [crota2]
+        ('ra_tile_min', 'f8'),   # Limits in RA of the tile
+        ('ra_tile_max', 'f8'),   # 
+        ('dec_tile_min', 'f8'),  # Limits in Dec of the tile
+        ('dec_tile_max', 'f8'),   #
+        ('cell_start','i4'),      # First cell index
+        ('cell_end','i4'),         # Last cell index
+        ('cell_nx','f4'),             # cell nx in pixels [naxis1]
+        ('cell_ny','f4'),             # cell ny in pixels [naxis2]
+        ('cell_xcenter','f4'),        # cell center in pixels
+        ('cell_ycenter','f4'),        #
+        ('pixel_scale','f4')          # pixel scale in degrees
+    ]
+
+    wcs = WCS(naxis=2)
+    pix = pixsize/3600 # Pixel size
+    wcs.wcs.cdelt = [pix,pix]
+    wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+    ntiles = len(ntheta)
+    hcellsize = cellsize / 2
+    # Grid of cells
+    n = 35  # enough to cover typical N=13 tile size with nx=4800
+    row, col = np.indices((2*n+1, 2*n+1))
+    row, col = row - n, col - n
+    # Name format
+    namefmt = 'a{0:03d}d{1:s}{2:02d}x{3:s}{4:02d}y{5:s}{6:02d}'
+    # Tiles and cells structured numpy arrays
+    tiles = np.empty(ntiles, dtype=wcs_tile_dtype)
+    cells = np.empty(0,  dtype=wcs_cell_dtype)
+    for itile in range(ntiles):
+        tile = tiles[itile]
+        # Counter to check the progress ...
+        if (itile % 1000) == 0:
+            print('\n'+str(itile), end='')
+        elif (itile %100) == 0:
+            print(':', end='')
+        elif (itile %25) == 0:
+            print('.', end='')  
+        ra0, dec0 = nphi[itile], 90-ntheta[itile]
+        ramin_, ramax_ = ramin[itile], ramax[itile]
+        decmin_, decmax_ = decmin[itile], decmax[itile]
+        if decmin_ > decmax_: decmin_, decmax_ = decmax_, decmin_
+        # Central pixel
+        dec_ = min(np.abs(decmin_), np.abs(decmax_))
+        if itile in [0, ntiles-1]:
+            ny = np.abs(decmin_ - decmax_) / pix * 2
+            nx = ny
+        else:
+            ny = np.abs(decmin_ - decmax_) / pix
+            nx = np.abs(ramax_ - ramin_) * np.cos(dec_ * np.pi/180) / pix
+        # Make nx and ny even number
+        nx = nx // 2 * 2
+        ny = ny // 2 * 2
+        x0t, y0t = (nx - 1) / 2, (ny - 1) / 2
+        wcs = WCS(naxis=2)
+        wcs.wcs.cdelt = [pix,pix]
+        wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+        wcs.wcs.crval = [ra0, dec0]
+        wcs.wcs.crpix = [x0t, y0t] # Between two central pixels
+        wcs.array_shape = [nx,ny]
+
+        #n = 35
+        #row, col = np.indices((2*n+1, 2*n+1))
+        #row, col = row - n, col - n
+        x0, y0 = row * cellsize + x0t, col * cellsize + y0t
+
+        # Cell corners
+        x1, y1 = x0 - hcellsize, y0 - hcellsize
+        x2, y2 = x0 + hcellsize, y0 - hcellsize
+        x3, y3 = x0 + hcellsize, y0 + hcellsize
+        x4, y4 = x0 - hcellsize, y0 + hcellsize
+        # Extended cell corners (including the overlap with contiguous cells)
+        x1e, y1e = x1 - border, y1 - border
+        x2e, y2e = x2 + border, y2 - border
+        x3e, y3e = x3 + border, y3 + border
+        x4e, y4e = x4 - border, y4 + border
+        # Cell corners
+        a0, d0 = wcs.wcs_pix2world(x0, y0, 0)
+        a1, d1 = wcs.wcs_pix2world(x1, y1, 0)
+        a2, d2 = wcs.wcs_pix2world(x2, y2, 0)
+        a3, d3 = wcs.wcs_pix2world(x3, y3, 0)
+        a4, d4 = wcs.wcs_pix2world(x4, y4, 0)
+        a1e, d1e = wcs.wcs_pix2world(x1e, y1e, 0)
+        a2e, d2e = wcs.wcs_pix2world(x2e, y2e, 0)
+        a3e, d3e = wcs.wcs_pix2world(x3e, y3e, 0)
+        a4e, d4e = wcs.wcs_pix2world(x4e, y4e, 0)
+
+        if ramin_ < 0:
+            idn = a0 > 270
+            a0[idn] -= 360
+            a1[idn] -= 360
+            a2[idn] -= 360
+            a3[idn] -= 360
+            a4[idn] -= 360
+        # Case of pole tiles
+        if itile == 0:
+            c1 = d1 >= decmin_
+            c2 = d2 >= decmin_
+            c3 = d3 >= decmin_
+            c4 = d4 >= decmin_
+        elif itile == ntiles-1:
+            c1 = d1 < decmax_
+            c2 = d2 < decmax_
+            c3 = d3 < decmax_
+            c4 = d4 < decmax_
+        # Case of generic ring tiles
+        else:
+            c1 = (a1 >= ramin_) & (a1 < ramax_) & (d1 >= decmin_) & (d1 < decmax_)
+            c2 = (a2 >= ramin_) & (a2 < ramax_) & (d2 >= decmin_) & (d2 < decmax_)
+            c3 = (a3 >= ramin_) & (a3 < ramax_) & (d3 >= decmin_) & (d3 < decmax_)
+            c4 = (a4 >= ramin_) & (a4 < ramax_) & (d4 >= decmin_) & (d4 < decmax_)
+
+        idx, idy = np.where(c1 | c2 | c3 | c4)
+        # Part of the file name (tile center coords)
+        if dec0 < 0:
+            dsign = 'm'
+        else:
+            dsign = 'p'
+        ra0_, dec0_ = round(ra0), round(np.abs(dec0))
+        # Fields for tiles
+        tile['tile_index'] = itile
+        tile['ra_tile_center'] = '{0:.10f}'.format(ra0)
+        tile['dec_tile_center'] = '{0:.10f}'.format(dec0)
+        tile['orientat_tile'] = 0 # Orientation projection
+        tile['ra_tile_min'] = '{0:.10f}'.format(ramin_)
+        tile['ra_tile_max'] = '{0:.10f}'.format(ramax_)
+        tile['dec_tile_min'] = '{0:.10f}'.format(decmin_)
+        tile['dec_tile_max'] = '{0:.10f}'.format(decmax_)       
+        tile['cell_start'] = len(cells)     # First cell index
+        tile['cell_nx'] = 5000
+        tile['cell_ny'] = 5000
+        tile['cell_xcenter'] = 2499.5
+        tile['cell_ycenter'] = 2499.5
+        tile['pixel_scale'] = pix
+        # Generate a numpy structured array for the cells of the tile 
+        cell = np.empty(len(idx), dtype=wcs_cell_dtype)
+        for icell, (idx_, idy_) in enumerate(zip(idx, idy)):
+            xsign, ysign = 'p', 'p'
+            if x0[idx_, idy_] < 0:
+                xsign = 'm'
+            if y0[idx_, idy_] < 0:
+                ysign = 'm'            
+            x0_, y0_ = np.abs(row[idx_, idy_]), np.abs(col[idx_, idy_])
+            cell[icell]['name'] = namefmt.format(ra0_, dsign, dec0_, xsign, x0_, ysign, y0_)
+            cell[icell]['ra_center'] = '{0:.10f}'.format(a0[idx_, idy_]) # cell center
+            cell[icell]['dec_center'] = '{0:.10f}'.format(d0[idx_, idy_])
+            cell[icell]['orientat'] = ra0 - a0[idx_, idy_] # orientation wrt tile
+            xpix = x0t - x0[idx_, idy_] + 2499.5
+            ypix = y0t - y0[idx_, idy_] + 2499.5
+            cell[icell]['x0_tile_center'] = xpix # position of tile center
+            cell[icell]['y0_tile_center'] = ypix
+            cell[icell]['ra_corn1'] = '{0:.10f}'.format(a1e[idx_, idy_])
+            cell[icell]['dec_corn1'] = '{0:.10f}'.format(d1e[idx_, idy_])
+            cell[icell]['ra_corn2'] = '{0:.10f}'.format(a2e[idx_, idy_])
+            cell[icell]['dec_corn2'] = '{0:.10f}'.format(d2e[idx_, idy_])
+            cell[icell]['ra_corn3'] = '{0:.10f}'.format(a3e[idx_, idy_])
+            cell[icell]['dec_corn3'] = '{0:.10f}'.format(d3e[idx_, idy_])
+            cell[icell]['ra_corn4'] = '{0:.10f}'.format(a4e[idx_, idy_])
+            cell[icell]['dec_corn4'] = '{0:.10f}'.format(d4e[idx_, idy_])
+            # Concatenate cells to the cells from previous tiles
+        cells = np.concatenate([cells, cell])
+        tile['cell_end'] = len(cells)       # Last cell index
+
+    # Save the file
+    tree = {}
+    tree.update({'skytiles': tiles})
+    tree.update({'skycells': cells})
+    ff = asdf.AsdfFile(tree)
+    ff.write_to(outfile)
+    return 1
