@@ -86,7 +86,7 @@ def romantessellation(NSIDE, radius=1):
     cra.append(0)
     cdec.append(-90)
     ramin.append(0)
-    ramax.append(0)
+    ramax.append(360)
     decmin.append(-90)
     decmax.append(thu)
     ramin, ramax = np.array(ramin), np.array(ramax)
@@ -361,12 +361,12 @@ def icosphere(recursion):
     return triangles
 
 
-def tiles2asdf(ntheta, nphi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=4800, border=100, outfile='skymap.asdf'):
+def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=4800, border=100, outfile='skymap.asdf'):
     """
     Generate an asdf file with the metadata of all the skycell files for all the tiles.
     Input:
-         ntheta        latitude of tile
-         nphi          longitude of tile
+         theta        latitude of tile
+         phi          longitude of tile
          ramin, ramax  limits in RA of tile
          decmin, decmax  limits in Declination of tile
          pixsize       pixel size in arcsec (default is 0.055 arcsec)
@@ -384,8 +384,8 @@ def tiles2asdf(ntheta, nphi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsiz
         ('ra_center', 'f8'),     # center of the cell
         ('dec_center', 'f8'),    # center of the cell
         ('orientat', 'f4'),      # orientation of the cell
-        ('x0_tile_center', 'f8'), # x coordinate from projection center in pixels [crpix1]
-        ('y0_tile_center', 'f8'), # y coordinate from projection center in pixels [crpix1]
+        ('x0_tile_center', 'f8'), # x coordinate of projection center in pixels [crpix1]
+        ('y0_tile_center', 'f8'), # y coordinate of projection center in pixels [crpix2]
         ('ra_corn1', 'f8'),      # RA corner 1
         ('dec_corn1', 'f8'),
         ('ra_corn2', 'f8'),
@@ -393,9 +393,7 @@ def tiles2asdf(ntheta, nphi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsiz
         ('ra_corn3', 'f8'),
         ('dec_corn3', 'f8'),
         ('ra_corn4', 'f8'),
-        ('dec_corn4', 'f8'),
-        ('pixel_scale', 'f4'),     # pixel scale in degrees
-        ('border', 'i4')           # size of border in pixels
+        ('dec_corn4', 'f8')
     ]
 
     # Structure of the tile metadata
@@ -404,25 +402,24 @@ def tiles2asdf(ntheta, nphi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsiz
         ('ra_tile_center', 'f8'),      # RA tile center  [crval1]
         ('dec_tile_center', 'f8'),     # Dec tile center [crval2]
         ('orientat_tile', 'f4'),       # Orientation projection [crota2]
-        ('ra_tile_min', 'f8'),   # Limits in RA of the tile
-        ('ra_tile_max', 'f8'),   # 
-        ('dec_tile_min', 'f8'),  # Limits in Dec of the tile
-        ('dec_tile_max', 'f8'),   #
-        ('cell_start','i4'),      # First cell index
-        ('cell_end','i4'),         # Last cell index
-        ('cell_nx','f4'),             # cell nx in pixels [naxis1]
-        ('cell_ny','f4'),             # cell ny in pixels [naxis2]
-        ('cell_xcenter','f4'),        # cell center in pixels
-        ('cell_ycenter','f4'),        #
-        ('pixel_scale','f4')          # pixel scale in degrees
+        ('ra_tile_min', 'f8'),         # Limits in RA of the tile
+        ('ra_tile_max', 'f8'),         # 
+        ('dec_tile_min', 'f8'),        # Limits in Dec of the tile
+        ('dec_tile_max', 'f8'),        #
+        ('cell_start','i4'),           # First cell index
+        ('cell_end','i4'),             # Last cell index
+        ('cell_nxy','f4'),            # square cell side in pixels [naxis1 and naxis2]
+        ('cell_border', 'f4'),         # border of cell in pixels
+        ('pixel_scale','f4')           # pixel scale in degrees
     ]
 
     wcs = WCS(naxis=2)
     pix = pixsize/3600 # Pixel size
     wcs.wcs.cdelt = [pix,pix]
     wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
-    ntiles = len(ntheta)
+    ntiles = len(theta)
     hcellsize = cellsize / 2
+    nxy = cellsize + border * 2
     # Grid of cells
     n = 35  # enough to cover typical N=13 tile size with nx=4800
     row, col = np.indices((2*n+1, 2*n+1))
@@ -441,7 +438,7 @@ def tiles2asdf(ntheta, nphi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsiz
             print(':', end='')
         elif (itile %25) == 0:
             print('.', end='')  
-        ra0, dec0 = nphi[itile], 90-ntheta[itile]
+        ra0, dec0 = phi[itile], 90-theta[itile]
         ramin_, ramax_ = ramin[itile], ramax[itile]
         decmin_, decmax_ = decmin[itile], decmax[itile]
         if decmin_ > decmax_: decmin_, decmax_ = decmax_, decmin_
@@ -532,10 +529,8 @@ def tiles2asdf(ntheta, nphi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsiz
         tile['dec_tile_min'] = '{0:.10f}'.format(decmin_)
         tile['dec_tile_max'] = '{0:.10f}'.format(decmax_)       
         tile['cell_start'] = len(cells)     # First cell index
-        tile['cell_nx'] = 5000
-        tile['cell_ny'] = 5000
-        tile['cell_xcenter'] = 2499.5
-        tile['cell_ycenter'] = 2499.5
+        tile['cell_nxy'] = nxy
+        tile['cell_border'] = border
         tile['pixel_scale'] = pix
         # Generate a numpy structured array for the cells of the tile 
         cell = np.empty(len(idx), dtype=wcs_cell_dtype)
@@ -572,4 +567,102 @@ def tiles2asdf(ntheta, nphi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsiz
     tree.update({'skycells': cells})
     ff = asdf.AsdfFile(tree)
     ff.write_to(outfile)
+    return 1
+
+def plotskytile(skymap, itile, distortion=False):
+    """
+    Plot a skytile (given the index) with all the skycells.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    skytiles = skymap['skytiles']
+    skycells = skymap['skycells']
+    tile = skytiles[itile]
+    cells = skycells[tile['cell_start']:tile['cell_end']]
+    c0 = tile['ra_tile_center']
+
+    if itile in [0,len(skytiles)-1]:
+        dd = 0.04
+        fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
+        for c in cells:
+            cosfac = np.cos(c['dec_corn1'] * np.pi/180)
+            c1 = c['ra_corn1']
+            c2 = c['ra_corn2']
+            c3 = c['ra_corn3']
+            c4 = c['ra_corn4']
+            if itile == 0:
+                d1 = 90-c['dec_corn1']
+                d2 = 90-c['dec_corn2']
+                d3 = 90-c['dec_corn3']
+                d4 = 90-c['dec_corn4']
+            else:
+                d1 = c['dec_corn1']
+                d2 = c['dec_corn2']
+                d3 = c['dec_corn3']
+                d4 = c['dec_corn4']
+            ax.plot(np.array([c1, c2, c3, c4, c1])* np.pi/180,
+                    [d1, d2, d3, d4, d1], color='skyblue')
+            ac = c['ra_center']* np.pi/180
+            dc = 90-c['dec_center']
+            orient = (90 - c['orientat']) * np.pi/180
+        angle = np.arange(0,2*np.pi,0.01)
+        print('Dec max,min is: ', tile['dec_tile_max'], tile['dec_tile_min'])
+        if itile == 0:
+            dec = 90-tile['dec_tile_min']
+        else:
+            dec = tile['dec_tile_max']
+        ax.plot(angle, dec*np.ones(len(angle)),color='red')
+    else:
+        fig, ax = plt.subplots()
+        for c in cells:
+            cosfac = np.cos(c['dec_corn1'] * np.pi/180)
+            c1 = c['ra_corn1']
+            c2 = c['ra_corn2']
+            c3 = c['ra_corn3']
+            c4 = c['ra_corn4']
+            if c0  == 0:
+                if c1 > 270:
+                    c1 -= 360
+                if c2 > 270:
+                    c2 -= 360
+                if c3 > 270:
+                    c3 -= 360
+                if c4 > 270:
+                    c4 -= 360
+            d1 = c['dec_corn1']
+            d2 = c['dec_corn2']
+            d3 = c['dec_corn3']
+            d4 = c['dec_corn4']
+            if distortion:
+                c1 = c0 + (c1-c0) * cosfac
+                c2 = c0 + (c2-c0) * cosfac
+                c3 = c0 + (c3-c0) * cosfac
+                c4 = c0 + (c4-c0) * cosfac
+            ax.plot([c1, c2, c3, c4, c1],
+                    [d1, d2, d3, d4, d1],color='skyblue')
+        amin, amax = tile['ra_tile_min'], tile['ra_tile_max']
+        dmin, dmax = tile['dec_tile_min'], tile['dec_tile_max']
+        if c0 == 0:
+            print('c0 is zero')
+            if amin > 270:
+                amin -= 360
+            if amax > 270:
+                amax -= 360
+        r = np.arange(0,1.1,.1)
+        r1 = np.ones(len(r))
+        a1, d1 = r1 * amin, r * (dmax-dmin) + dmin
+        a2, d2 = r * (amax-amin) + amin, r1 * dmax
+        a3, d3 = r1 * amax, d1[::-1]
+        a4, d4 = a2[::-1], r1*dmin
+        aa = np.concatenate([a1,a2,a3,a4])
+        dd = np.concatenate([d1,d2,d3,d4])
+        #aa = [tile['ra_tile_min'],tile['ra_tile_min'],tile['ra_tile_max'],tile['ra_tile_max'],tile['ra_tile_min']]
+        #dd = [tile['dec_tile_min'],tile['dec_tile_max'],tile['dec_tile_max'],tile['dec_tile_min'],tile['dec_tile_min']]
+        if distortion:
+            aa = c0 + (np.array(aa) - c0) * np.cos(dd * np.pi/180)
+        ax.plot(aa,dd,color='red')
+    ax.grid()
+    ax.set_xlabel('RA')
+    ax.set_ylabel('Dec')
+    plt.show()
     return 1
