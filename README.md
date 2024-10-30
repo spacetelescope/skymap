@@ -4,7 +4,15 @@ Package for the study of tessellation of the sphere.
 
 To install the package follow these instructions.
 
-1. First create an environment with the environment.yml file:
+1. Clone the repository
+
+git clone git@github.com:spacetelescope/skymap.git
+
+2. Change directory
+
+cd skymap
+
+3. Create an environment with the environment.yml file:
 
 conda env create -f environment.yml
 
@@ -12,17 +20,18 @@ conda env create -f environment.yml
 
 conda activate skymap
 
-2. Clone the repository
+4. Install the asdf package
 
-git clone git@github.com:spacetelescope/skymap.git
+conda install -c astropy asdf
 
-3. Install:
+3. Install the skymap package:
 
-pip install -e skymap
+pip install -e .
 
 4. You should now be able to open a notebook and use the package.
 
-cd skymap/notebook
+cd notebook
 
-jupyter-lab skymap_notebook.ipynb
+jupyter-lab Tessellation.ipynb
+jupyter-lab Skymap.ipynb
 
