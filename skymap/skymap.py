@@ -380,33 +380,33 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
 
     # Structure of the tile metadata
     wcs_tile_dtype = [
-        ('tile_index', 'i4'),
-        ('ra_tile', 'f8'),      # RA tile center  [crval1]
-        ('dec_tile', 'f8'),     # Dec tile center [crval2]
-        ('ra_tile_min', 'f8'),         # Limits in RA of the tile
-        ('ra_tile_max', 'f8'),         # 
-        ('dec_tile_min', 'f8'),        # Limits in Dec of the tile
-        ('dec_tile_max', 'f8'),        #
-        ('orientat_proj', 'f4'),       # Orientation projection [crota2]
-        ('x0_proj', 'f8'), # x coord of projection region center
-        ('y0_proj', 'f8'), # y coord of projection region center
-        ('nx_proj', 'i4'), # x-size of projection region in pixels
-        ('ny_proj', 'i4'), # y-size of projection region in pixels
-        ('cell_start','i4'),           # First cell index
-        ('cell_end','i4'),             # Last cell index
-        ('nxy_cell','i4'),            # square cell side in pixels [naxis1 and naxis2]
-        ('border_cell', 'i4'),         # border of cell in pixels
+        ('index', 'i4'),
+        ('ra_tangent', 'f8'),      # RA tile center  [crval1]
+        ('dec_tangent', 'f8'),     # Dec tile center [crval2]
+        ('ra_min', 'f8'),         # Limits in RA of the tile
+        ('ra_max', 'f8'),         # 
+        ('dec_min', 'f8'),        # Limits in Dec of the tile
+        ('dec_max', 'f8'),        #
+        ('orientat', 'f4'),       # Orientation projection [crota2]
+        ('x_tangent', 'f8'), # x coord of projection region center
+        ('y_tangent', 'f8'), # y coord of projection region center
+        ('nx', 'i4'), # x-size of projection region in pixels
+        ('ny', 'i4'), # y-size of projection region in pixels
+        ('skycell_start','i4'),           # First cell index
+        ('skycell_end','i4'),             # Last cell index
+        ('nxy_skycell','i4'),            # square cell side in pixels [naxis1 and naxis2]
+        ('skycell_border_pixels', 'i4'),         # border of cell in pixels
         ('pixel_scale','f4')           # pixel scale in degrees
     ]
 
     # Structure of the cell metadata
     wcs_cell_dtype = [
         ('name', 'U16'),
-        ('ra_cell', 'f8'),     # center of the cell
-        ('dec_cell', 'f8'),    # center of the cell
-        ('orientat_cell', 'f4'),      # orientation of the cell
-        ('x0_cell', 'f8'), # x coordinate of projection center in pixels [crpix1]
-        ('y0_cell', 'f8'), # y coordinate of projection center in pixels [crpix2]
+        ('ra_center', 'f8'),     # center of the cell
+        ('dec_center', 'f8'),    # center of the cell
+        ('orientat', 'f4'),      # orientation of the cell
+        ('x_tangent', 'f8'), # x coordinate of projection center in pixels [crpix1]
+        ('y_tangent', 'f8'), # y coordinate of projection center in pixels [crpix2]
         ('ra_corn1', 'f8'),      # RA corner 1
         ('dec_corn1', 'f8'),
         ('ra_corn2', 'f8'),
@@ -524,22 +524,22 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
             dsign = 'p'
         ra0_, dec0_ = round(ra0), round(np.abs(dec0))
         # Fields for tiles
-        tile['tile_index'] = itile
-        tile['ra_tile'] = '{0:.10f}'.format(ra0)
-        tile['dec_tile'] = '{0:.10f}'.format(dec0)
-        tile['ra_tile_min'] = '{0:.10f}'.format(ramin_)
-        tile['ra_tile_max'] = '{0:.10f}'.format(ramax_)
-        tile['dec_tile_min'] = '{0:.10f}'.format(decmin_)
-        tile['dec_tile_max'] = '{0:.10f}'.format(decmax_)       
-        tile['cell_start'] = len(cells)     # First cell index
-        tile['nxy_cell'] = nxy
-        tile['border_cell'] = border
+        tile['index'] = itile
+        tile['ra_tangent'] = '{0:.10f}'.format(ra0)
+        tile['dec_tangent'] = '{0:.10f}'.format(dec0)
+        tile['ra_min'] = '{0:.10f}'.format(ramin_)
+        tile['ra_max'] = '{0:.10f}'.format(ramax_)
+        tile['dec_min'] = '{0:.10f}'.format(decmin_)
+        tile['dec_max'] = '{0:.10f}'.format(decmax_)       
+        tile['skycell_start'] = len(cells)     # First cell index
+        tile['nxy_skycell'] = nxy
+        tile['skycell_border_pixels'] = border
         tile['pixel_scale'] = pix
-        tile['x0_proj'] = x0t
-        tile['y0_proj'] = y0t
-        tile['nx_proj'] = nx
-        tile['ny_proj'] = ny     
-        tile['orientat_proj'] = 0 # Orientation projection
+        tile['x_tangent'] = x0t
+        tile['y_tangent'] = y0t
+        tile['nx'] = nx
+        tile['ny'] = ny     
+        tile['orientat'] = 0 # Orientation projection
         # Generate a numpy structured array for the cells of the tile 
         cell = np.empty(len(idx), dtype=wcs_cell_dtype)
         for icell, (idx_, idy_) in enumerate(zip(idx, idy)):
@@ -550,13 +550,13 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
                 ysign = 'm'            
             x0_, y0_ = np.abs(row[idx_, idy_]), np.abs(col[idx_, idy_])
             cell[icell]['name'] = namefmt.format(ra0_, dsign, dec0_, xsign, x0_, ysign, y0_)
-            cell[icell]['ra_cell'] = '{0:.10f}'.format(a0[idx_, idy_]) # cell center
-            cell[icell]['dec_cell'] = '{0:.10f}'.format(d0[idx_, idy_])
-            cell[icell]['orientat_cell'] = ra0 - a0[idx_, idy_] # orientation wrt tile
+            cell[icell]['ra_center'] = '{0:.10f}'.format(a0[idx_, idy_]) # cell center
+            cell[icell]['dec_center'] = '{0:.10f}'.format(d0[idx_, idy_])
+            cell[icell]['orientat'] = ra0 - a0[idx_, idy_] # orientation wrt tile
             xpix = x0t - x0[idx_, idy_] + 2499.5
             ypix = y0t - y0[idx_, idy_] + 2499.5
-            cell[icell]['x0_cell'] = xpix # position of tile center
-            cell[icell]['y0_cell'] = ypix
+            cell[icell]['x_tangent'] = xpix # position of tile center
+            cell[icell]['y_tangent'] = ypix
             cell[icell]['ra_corn1'] = '{0:.10f}'.format(a1e[idx_, idy_])
             cell[icell]['dec_corn1'] = '{0:.10f}'.format(d1e[idx_, idy_])
             cell[icell]['ra_corn2'] = '{0:.10f}'.format(a2e[idx_, idy_])
@@ -567,11 +567,11 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
             cell[icell]['dec_corn4'] = '{0:.10f}'.format(d4e[idx_, idy_])
             # Concatenate cells to the cells from previous tiles
         cells = np.concatenate([cells, cell])
-        tile['cell_end'] = len(cells)       # Last cell index
+        tile['skycell_end'] = len(cells)       # Last cell index
 
     # Save the file
     tree = {}
-    tree.update({'skytiles': tiles})
+    tree.update({'projection_regions': tiles})
     tree.update({'skycells': cells})
     ff = asdf.AsdfFile(tree)
     ff.write_to(outfile)
@@ -583,11 +583,11 @@ def plotskytile(skymap, itile, distortion=False):
     """
     import matplotlib.pyplot as plt
     import numpy as np
-    skytiles = skymap['skytiles']
+    skytiles = skymap['projection_regions']
     skycells = skymap['skycells']
     tile = skytiles[itile]
-    cells = skycells[tile['cell_start']:tile['cell_end']]
-    c0 = tile['ra_tile']
+    cells = skycells[tile['skycell_start']:tile['skycell_end']]
+    c0 = tile['ra_tangent']
 
     if itile in [0,len(skytiles)-1]:
         dd = 0.04
@@ -610,15 +610,15 @@ def plotskytile(skymap, itile, distortion=False):
                 d4 = c['dec_corn4']
             ax.plot(np.array([c1, c2, c3, c4, c1])* np.pi/180,
                     [d1, d2, d3, d4, d1], color='skyblue')
-            ac = c['ra_cell']* np.pi/180
-            dc = 90-c['dec_cell']
-            orient = (90 - c['orientat_cell']) * np.pi/180
+            ac = c['ra_center']* np.pi/180
+            dc = 90-c['dec_center']
+            orient = (90 - c['orientat']) * np.pi/180
         angle = np.arange(0,2*np.pi,0.01)
-        print('Dec max,min is: ', tile['dec_tile_max'], tile['dec_tile_min'])
+        print('Dec max,min is: ', tile['dec_max'], tile['dec_min'])
         if itile == 0:
-            dec = 90-tile['dec_tile_min']
+            dec = 90-tile['dec_min']
         else:
-            dec = tile['dec_tile_max']
+            dec = tile['dec_max']
         ax.plot(angle, dec*np.ones(len(angle)),color='red')
     else:
         fig, ax = plt.subplots()
@@ -648,8 +648,8 @@ def plotskytile(skymap, itile, distortion=False):
                 c4 = c0 + (c4-c0) * cosfac
             ax.plot([c1, c2, c3, c4, c1],
                     [d1, d2, d3, d4, d1],color='skyblue')
-        amin, amax = tile['ra_tile_min'], tile['ra_tile_max']
-        dmin, dmax = tile['dec_tile_min'], tile['dec_tile_max']
+        amin, amax = tile['ra_min'], tile['ra_max']
+        dmin, dmax = tile['dec_min'], tile['dec_max']
         if c0 == 0:
             print('c0 is zero')
             if amin > 270:
@@ -664,8 +664,8 @@ def plotskytile(skymap, itile, distortion=False):
         a4, d4 = a2[::-1], r1*dmin
         aa = np.concatenate([a1,a2,a3,a4])
         dd = np.concatenate([d1,d2,d3,d4])
-        #aa = [tile['ra_tile_min'],tile['ra_tile_min'],tile['ra_tile_max'],tile['ra_tile_max'],tile['ra_tile_min']]
-        #dd = [tile['dec_tile_min'],tile['dec_tile_max'],tile['dec_tile_max'],tile['dec_tile_min'],tile['dec_tile_min']]
+        #aa = [tile['ra_min'],tile['ra_min'],tile['ra_max'],tile['ra_max'],tile['ra_min']]
+        #dd = [tile['dec_min'],tile['dec_max'],tile['dec_max'],tile['dec_min'],tile['dec_min']]
         if distortion:
             aa = c0 + (np.array(aa) - c0) * np.cos(dd * np.pi/180)
         ax.plot(aa,dd,color='red')
