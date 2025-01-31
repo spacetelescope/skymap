@@ -429,7 +429,8 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
     row, col = np.indices((2*n+1, 2*n+1))
     row, col = row - n, col - n
     # Name format
-    namefmt = 'a{0:03d}d{1:s}{2:02d}x{3:s}{4:02d}y{5:s}{6:02d}'
+    #namefmt = 'a{0:03d}d{1:s}{2:02d}x{3:s}{4:02d}y{5:s}{6:02d}'
+    namefmt = '{0:03d}{1:s}{2:02d}x{3:02d}y{4:02d}'
     # Tiles and cells structured numpy arrays
     tiles = np.empty(ntiles, dtype=wcs_tile_dtype)
     cells = np.empty(0,  dtype=wcs_cell_dtype)
@@ -543,13 +544,17 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         # Generate a numpy structured array for the cells of the tile 
         cell = np.empty(len(idx), dtype=wcs_cell_dtype)
         for icell, (idx_, idy_) in enumerate(zip(idx, idy)):
-            xsign, ysign = 'p', 'p'
-            if x0[idx_, idy_] < 0:
-                xsign = 'm'
-            if y0[idx_, idy_] < 0:
-                ysign = 'm'            
-            x0_, y0_ = np.abs(row[idx_, idy_]), np.abs(col[idx_, idy_])
-            cell[icell]['name'] = namefmt.format(ra0_, dsign, dec0_, xsign, x0_, ysign, y0_)
+            #xsign, ysign = 'p', 'p'
+            #if x0[idx_, idy_] < 0:
+            #    xsign = 'm'
+            #if y0[idx_, idy_] < 0:
+            #    ysign = 'm'            
+            #x0_, y0_ = np.abs(row[idx_, idy_]), np.abs(col[idx_, idy_])
+            # Let's assume that (50,50) is the coordinates of the central cell
+            # This is done to avoid signs in the x,y coordinates of a cell
+            x0_, y0_ = 50+row[idx_, idy_], 50+col[idx_, idy_]
+            #cell[icell]['name'] = namefmt.format(ra0_, dsign, dec0_, xsign, x0_, ysign, y0_)
+            cell[icell]['name'] = namefmt.format(ra0_, dsign, dec0_, x0_, y0_)
             cell[icell]['ra_center'] = '{0:.10f}'.format(a0[idx_, idy_]) # cell center
             cell[icell]['dec_center'] = '{0:.10f}'.format(d0[idx_, idy_])
             cell[icell]['orientat'] = ra0 - a0[idx_, idy_] # orientation wrt tile
