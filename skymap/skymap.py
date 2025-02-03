@@ -377,6 +377,11 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
     from astropy.wcs import WCS
     import asdf
     import numpy as np
+    from datetime import time,date,datetime
+    
+    d = date(2025, 1, 1)
+    t = time(0, 0, 0)
+    startdate = datetime.combine(d, t)
 
     # Structure of the tile metadata
     wcs_tile_dtype = [
@@ -394,8 +399,8 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         ('ny', 'i4'), # y-size of projection region in pixels
         ('skycell_start','i4'),           # First cell index
         ('skycell_end','i4'),             # Last cell index
-        ('nxy_skycell','i4'),            # square cell side in pixels [naxis1 and naxis2]
-        ('skycell_border_pixels', 'i4'),         # border of cell in pixels
+        #('nxy_skycell','i4'),            # square cell side in pixels [naxis1 and naxis2]
+        #('skycell_border_pixels', 'i4'),         # border of cell in pixels
         ('pixel_scale','f4')           # pixel scale in degrees
     ]
 
@@ -533,8 +538,8 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         tile['dec_min'] = '{0:.10f}'.format(decmin_)
         tile['dec_max'] = '{0:.10f}'.format(decmax_)       
         tile['skycell_start'] = len(cells)     # First cell index
-        tile['nxy_skycell'] = nxy
-        tile['skycell_border_pixels'] = border
+        #tile['nxy_skycell'] = nxy
+        #tile['skycell_border_pixels'] = border
         tile['pixel_scale'] = pix
         tile['x_tangent'] = x0t
         tile['y_tangent'] = y0t
@@ -575,9 +580,31 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         tile['skycell_end'] = len(cells)       # Last cell index
 
     # Save the file
-    tree = {}
-    tree.update({'projection_regions': tiles})
-    tree.update({'skycells': cells})
+    #tree = {}
+    roman = asdf.tagged.TaggedDict()
+    instrument = {'name':'WFI'}
+    meta = {'author': "Dario Fadda",
+            'description':"Skycells covering the celestial sphere",
+            'homepage': "http://github.com/spacetelescope/skymap",
+            'instrument': instrument,
+            'nxy_skycell': nxy,
+            'origin': 'STSCI',
+            'pedigree':'GROUND',
+            'plate_scale': 0.55,
+            'reftype': 'SKYCELLS',
+            'skycell_border_pixels': border,
+            'telescope': 'ROMAN',
+            'useafter': startdate,
+            }
+    roman['meta'] = meta
+    roman['projection_regions'] = tiles
+    roman['skycells'] = cells
+    roman['datamodel_name'] = "RomanSkycellsRefModel"
+    tree = {
+    "roman": roman,
+    }
+    #tree.update({'projection_regions': tiles})
+    #tree.update({'skycells': cells})
     ff = asdf.AsdfFile(tree)
     ff.write_to(outfile)
     return 1
