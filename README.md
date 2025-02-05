@@ -20,15 +20,11 @@ conda env create -f environment.yml
 
 conda activate skymap
 
-4. Install the asdf package
-
-conda install -c astropy asdf
-
-3. Install the skymap package:
+4. Install the skymap package:
 
 pip install -e .
 
-4. You should now be able to open a notebook and use the package.
+5. You should now be able to open a notebook and use the package.
 
 cd notebook
 
