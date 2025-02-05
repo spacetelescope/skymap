@@ -8,7 +8,7 @@ package:
 
 source:
   git_tag: main
-  git_url: https://grit.stsci.edu/roman/skymap.git
+  git_url: https://github.com/spacetelescope/skymap
 
 build:
   
@@ -33,7 +33,7 @@ test:
     - sospex
 
 about:
-  home: https://grit.stsci.edu/roman/skymap
+  home: https://github.com/spacetelescope/skymap
   license: GPL3
   license_file: LICENSE
   description: 'The package is about skymap tessellation for Roman'
