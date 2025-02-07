@@ -401,7 +401,7 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         ('skycell_end','i4'),             # Last cell index
         #('nxy_skycell','i4'),            # square cell side in pixels [naxis1 and naxis2]
         #('skycell_border_pixels', 'i4'),         # border of cell in pixels
-        ('pixel_scale','f4')           # pixel scale in degrees
+        #('pixel_scale','f4')           # pixel scale in degrees
     ]
 
     # Structure of the cell metadata
@@ -540,7 +540,7 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         tile['skycell_start'] = len(cells)     # First cell index
         #tile['nxy_skycell'] = nxy
         #tile['skycell_border_pixels'] = border
-        tile['pixel_scale'] = pix
+        #tile['pixel_scale'] = pix
         tile['x_tangent'] = x0t
         tile['y_tangent'] = y0t
         tile['nx'] = nx
@@ -590,7 +590,7 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
             'nxy_skycell': nxy,
             'origin': 'STSCI',
             'pedigree':'GROUND',
-            'plate_scale': 0.55,
+            'plate_scale': pixsize,
             'reftype': 'SKYCELLS',
             'skycell_border_pixels': border,
             'telescope': 'ROMAN',
