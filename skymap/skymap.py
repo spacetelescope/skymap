@@ -375,9 +375,13 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
          outfile       name of ASDF output file 
     """
     from astropy.wcs import WCS
-    import asdf
-    import numpy as np
     from datetime import time,date,datetime
+    import numpy as np
+    from astropy.time import Time
+    import asdf
+    import roman_datamodels as dm
+    import roman_datamodels.stnode as stnode
+
     
     d = date(2025, 1, 1)
     t = time(0, 0, 0)
@@ -580,33 +584,55 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         tile['skycell_end'] = len(cells)       # Last cell index
 
     # Save the file
-    #tree = {}
-    roman = asdf.tagged.TaggedDict()
-    instrument = {'name':'WFI'}
-    meta = {'author': "Dario Fadda",
-            'description':"Skycells covering the celestial sphere",
-            'homepage': "http://github.com/spacetelescope/skymap",
-            'instrument': instrument,
-            'nxy_skycell': nxy,
-            'origin': 'STSCI',
-            'pedigree':'GROUND',
-            'plate_scale': pixsize,
-            'reftype': 'SKYCELLS',
-            'skycell_border_pixels': border,
-            'telescope': 'ROMAN',
-            'useafter': startdate,
-            }
-    roman['meta'] = meta
-    roman['projection_regions'] = tiles
-    roman['skycells'] = cells
-    roman['datamodel_name'] = "RomanSkycellsRefModel"
-    tree = {
-    "roman": roman,
+
+    meta = {
+        "reftype": "SKYCELLS",
+        "pedigree": "GROUND",
+        "description": "Skycells covering the celestial sphere",
+        "author": "Dario Fadda",
+        "useafter": Time(startdate),
+        "telescope": "ROMAN",
+        "origin": "STSCI",
+        "instrument": {
+            "name": "WFI"
+        },
+        "nxy_skycell": nxy,
+        "skycell_border_pixels": border,
+        "pixel_scale": pixsize,
     }
-    #tree.update({'projection_regions': tiles})
-    #tree.update({'skycells': cells})
-    ff = asdf.AsdfFile(tree)
-    ff.write_to(outfile)
+    skycellref = stnode.SkycellsRef()
+    skycellref['meta'] = meta
+    skycellref['projection_regions'] = tiles
+    skycellref['skycells'] =  cells
+    skycellref['datamodel_name'] = "RomanSkycellsRefModel"
+    with asdf.AsdfFile() as afout:
+        afout = asdf.AsdfFile()
+        afout.tree['roman'] = skycellref
+        afout.write_to(outfile)
+    #roman = asdf.tagged.TaggedDict()
+    #instrument = {'name':'WFI'}
+    #meta = {'author': "Dario Fadda",
+    #        'description':"Skycells covering the celestial sphere",
+    #        'homepage': "http://github.com/spacetelescope/skymap",
+    #        'instrument': instrument,
+    #        'nxy_skycell': nxy,
+    #        'origin': 'STSCI',
+    #        'pedigree':'GROUND',
+    #        'plate_scale': pixsize,
+    #        'reftype': 'SKYCELLS',
+    #        'skycell_border_pixels': border,
+    #        'telescope': 'ROMAN',
+    #        'useafter': startdate,
+    #        }
+    #roman['meta'] = meta
+    #roman['projection_regions'] = tiles
+    #roman['skycells'] = cells
+    #roman['datamodel_name'] = "RomanSkycellsRefModel"
+    #tree = {
+    #"roman": roman,
+    #}
+    #ff = asdf.AsdfFile(tree)
+    #ff.write_to(outfile)
     return 1
 
 def plotskytile(skymap, itile, distortion=False):
@@ -615,8 +641,8 @@ def plotskytile(skymap, itile, distortion=False):
     """
     import matplotlib.pyplot as plt
     import numpy as np
-    skytiles = skymap['projection_regions']
-    skycells = skymap['skycells']
+    skytiles = skymap['roman']['projection_regions']
+    skycells = skymap['roman']['skycells']
     tile = skytiles[itile]
     cells = skycells[tile['skycell_start']:tile['skycell_end']]
     c0 = tile['ra_tangent']
