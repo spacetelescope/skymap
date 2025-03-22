@@ -20,18 +20,14 @@ conda env create -f environment.yml
 
 conda activate skymap
 
-4. Install the roman_datamodels
 
-pip install roman-datamodels
-
-5. Install the skymap package:
+4. Install the skymap package:
 
 pip install -e .
 
-6. You should now be able to open a notebook and use the package.
+5. You should now be able to open a notebook and use the package.
 
 cd notebook
 
-jupyter-lab Tessellation.ipynb
 jupyter-lab Skymap.ipynb
 

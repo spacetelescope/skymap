@@ -13,3 +13,5 @@ dependencies:
   - jupyterlab>=4.0.11
   - pandas>=2.1.4
   - asdf>=4.1.0
+  - pip:
+      - roman-datamodels>=0.23.1
