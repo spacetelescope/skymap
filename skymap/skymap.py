@@ -39,7 +39,7 @@ def romantessellation(NSIDE, radius=1):
    
     vertices = []
     # First tile is the polar cap
-    nphi = [225]
+    nphi = [135]
     ntheta = [90]
     thu = thetav[0]
     _theta = np.array([thu] * 36)
@@ -75,7 +75,7 @@ def romantessellation(NSIDE, radius=1):
         thu = thd
         
     # Last tile: opposite polar cup
-    nphi.append(135)
+    nphi.append(225)
     ntheta.append(-90)
     ntheta = 90 - np.array(ntheta)        
     nphi = np.array(nphi)
@@ -117,7 +117,7 @@ def doublepixelization(NSIDE, radius=1):
     thetav = y2theta(yuvp)
 
     vertices = []
-    nphi = [225]
+    nphi = [135]
     ntheta = [90]
     thu = thetav[0]
     _theta = np.array([thu] * 4)
@@ -205,7 +205,7 @@ def doublepixelization(NSIDE, radius=1):
             vertices.append(ang2point(vtheta, vphi, radius))
         thu = thd
         
-    nphi.append(135)
+    nphi.append(225)
     ntheta.append(-90)
     ntheta = 90 - np.array(ntheta)        
     nphi = np.array(nphi)
@@ -360,6 +360,13 @@ def icosphere(recursion):
         
     return triangles
 
+def angle360(x):
+    # Express angles inside 0<= x <= 360
+    if x < 0:
+        x += 360
+    elif x > 360:
+        x -= 360
+    return x
 
 def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=4800, border=100, outfile='skymap.asdf'):
     """
@@ -374,12 +381,16 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
          border        border of sky cell overlapping adjacent cells in pixels (default is 100)
          outfile       name of ASDF output file 
     """
-    from astropy.wcs import WCS
+    #from astropy.wcs import WCS
+    from astropy.modeling import models
+    from astropy import coordinates as coord
+    from astropy import units as u
+    from gwcs import wcs
+    from gwcs import coordinate_frames as cf
     from datetime import time,date,datetime
     import numpy as np
     from astropy.time import Time
     import asdf
-    import roman_datamodels as dm
     import roman_datamodels.stnode as stnode
 
     
@@ -403,9 +414,6 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         ('ny', 'i4'), # y-size of projection region in pixels
         ('skycell_start','i4'),           # First cell index
         ('skycell_end','i4'),             # Last cell index
-        #('nxy_skycell','i4'),            # square cell side in pixels [naxis1 and naxis2]
-        #('skycell_border_pixels', 'i4'),         # border of cell in pixels
-        #('pixel_scale','f4')           # pixel scale in degrees
     ]
 
     # Structure of the cell metadata
@@ -426,10 +434,7 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         ('dec_corn4', 'f8')
     ]
 
-    wcs = WCS(naxis=2)
     pix = pixsize/3600 # Pixel size
-    wcs.wcs.cdelt = [pix,pix]
-    wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
     ntiles = len(theta)
     hcellsize = cellsize / 2
     nxy = cellsize + border * 2
@@ -438,7 +443,6 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
     row, col = np.indices((2*n+1, 2*n+1))
     row, col = row - n, col - n
     # Name format
-    #namefmt = 'a{0:03d}d{1:s}{2:02d}x{3:s}{4:02d}y{5:s}{6:02d}'
     namefmt = '{0:03d}{1:s}{2:02d}x{3:02d}y{4:02d}'
     # Tiles and cells structured numpy arrays
     tiles = np.empty(ntiles, dtype=wcs_tile_dtype)
@@ -468,18 +472,17 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         nx = nx // 2 * 2
         ny = ny // 2 * 2
         x0t, y0t = (nx - 1) / 2, (ny - 1) / 2
-        wcs = WCS(naxis=2)
-        wcs.wcs.cdelt = [pix,pix]
-        wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
-        wcs.wcs.crval = [ra0, dec0]
-        wcs.wcs.crpix = [x0t, y0t] # Between two central pixels
-        wcs.array_shape = [nx,ny]
+        pixelshift = models.Shift(-x0t) & models.Shift(-y0t)
+        pixelscale = models.Scale(pix) & models.Scale(pix) # 0.1 arcsec/pixel
+        tangent_projection = models.Pix2Sky_TAN()
+        celestial_rotation = models.RotateNative2Celestial(ra0, dec0, 180.)
+        det2sky = pixelshift | pixelscale | tangent_projection | celestial_rotation
+        detector_frame = cf.Frame2D(name="detector", axes_names=("x", "y"), unit=(u.pix, u.pix))
+        sky_frame = cf.CelestialFrame(reference_frame=coord.ICRS(), name='icrs', unit=(u.deg, u.deg))
+        wcsobj = wcs.WCS([(detector_frame, det2sky),(sky_frame, None)])
 
-        #n = 35
-        #row, col = np.indices((2*n+1, 2*n+1))
-        #row, col = row - n, col - n
-        x0, y0 = row * cellsize + x0t, col * cellsize + y0t
-
+        x0, y0 = col * cellsize + x0t, row * cellsize + y0t
+        
         # Cell corners
         x1, y1 = x0 - hcellsize, y0 - hcellsize
         x2, y2 = x0 + hcellsize, y0 - hcellsize
@@ -491,15 +494,15 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         x3e, y3e = x3 + border, y3 + border
         x4e, y4e = x4 - border, y4 + border
         # Cell corners
-        a0, d0 = wcs.wcs_pix2world(x0, y0, 0)
-        a1, d1 = wcs.wcs_pix2world(x1, y1, 0)
-        a2, d2 = wcs.wcs_pix2world(x2, y2, 0)
-        a3, d3 = wcs.wcs_pix2world(x3, y3, 0)
-        a4, d4 = wcs.wcs_pix2world(x4, y4, 0)
-        a1e, d1e = wcs.wcs_pix2world(x1e, y1e, 0)
-        a2e, d2e = wcs.wcs_pix2world(x2e, y2e, 0)
-        a3e, d3e = wcs.wcs_pix2world(x3e, y3e, 0)
-        a4e, d4e = wcs.wcs_pix2world(x4e, y4e, 0)
+        a0, d0 = wcsobj(x0, y0)
+        a1, d1 = wcsobj(x1, y1)
+        a2, d2 = wcsobj(x2, y2)
+        a3, d3 = wcsobj(x3, y3)
+        a4, d4 = wcsobj(x4, y4)
+        a1e, d1e = wcsobj(x1e, y1e)
+        a2e, d2e = wcsobj(x2e, y2e)
+        a3e, d3e = wcsobj(x3e, y3e)
+        a4e, d4e = wcsobj(x4e, y4e)
 
         if ramin_ < 0:
             idn = a0 > 270
@@ -537,14 +540,11 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         tile['index'] = itile
         tile['ra_tangent'] = '{0:.10f}'.format(ra0)
         tile['dec_tangent'] = '{0:.10f}'.format(dec0)
-        tile['ra_min'] = '{0:.10f}'.format(ramin_)
-        tile['ra_max'] = '{0:.10f}'.format(ramax_)
+        tile['ra_min'] = '{0:.10f}'.format(angle360(ramin_))
+        tile['ra_max'] = '{0:.10f}'.format(angle360(ramax_))
         tile['dec_min'] = '{0:.10f}'.format(decmin_)
         tile['dec_max'] = '{0:.10f}'.format(decmax_)       
         tile['skycell_start'] = len(cells)     # First cell index
-        #tile['nxy_skycell'] = nxy
-        #tile['skycell_border_pixels'] = border
-        #tile['pixel_scale'] = pix
         tile['x_tangent'] = x0t
         tile['y_tangent'] = y0t
         tile['nx'] = nx
@@ -552,32 +552,26 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         tile['orientat'] = 0 # Orientation projection
         # Generate a numpy structured array for the cells of the tile 
         cell = np.empty(len(idx), dtype=wcs_cell_dtype)
+        npix = (nxy - 1)/2
         for icell, (idx_, idy_) in enumerate(zip(idx, idy)):
-            #xsign, ysign = 'p', 'p'
-            #if x0[idx_, idy_] < 0:
-            #    xsign = 'm'
-            #if y0[idx_, idy_] < 0:
-            #    ysign = 'm'            
-            #x0_, y0_ = np.abs(row[idx_, idy_]), np.abs(col[idx_, idy_])
             # Let's assume that (50,50) is the coordinates of the central cell
             # This is done to avoid signs in the x,y coordinates of a cell
             x0_, y0_ = 50+row[idx_, idy_], 50+col[idx_, idy_]
-            #cell[icell]['name'] = namefmt.format(ra0_, dsign, dec0_, xsign, x0_, ysign, y0_)
             cell[icell]['name'] = namefmt.format(ra0_, dsign, dec0_, x0_, y0_)
-            cell[icell]['ra_center'] = '{0:.10f}'.format(a0[idx_, idy_]) # cell center
+            cell[icell]['ra_center'] = '{0:.10f}'.format(angle360(a0[idx_, idy_])) # cell center
             cell[icell]['dec_center'] = '{0:.10f}'.format(d0[idx_, idy_])
             cell[icell]['orientat'] = ra0 - a0[idx_, idy_] # orientation wrt tile
-            xpix = x0t - x0[idx_, idy_] + 2499.5
-            ypix = y0t - y0[idx_, idy_] + 2499.5
+            xpix = x0t - x0[idx_, idy_] + npix
+            ypix = y0t - y0[idx_, idy_] + npix
             cell[icell]['x_tangent'] = xpix # position of tile center
             cell[icell]['y_tangent'] = ypix
-            cell[icell]['ra_corn1'] = '{0:.10f}'.format(a1e[idx_, idy_])
+            cell[icell]['ra_corn1'] = '{0:.10f}'.format(angle360(a1e[idx_, idy_]))
             cell[icell]['dec_corn1'] = '{0:.10f}'.format(d1e[idx_, idy_])
-            cell[icell]['ra_corn2'] = '{0:.10f}'.format(a2e[idx_, idy_])
+            cell[icell]['ra_corn2'] = '{0:.10f}'.format(angle360(a2e[idx_, idy_]))
             cell[icell]['dec_corn2'] = '{0:.10f}'.format(d2e[idx_, idy_])
-            cell[icell]['ra_corn3'] = '{0:.10f}'.format(a3e[idx_, idy_])
+            cell[icell]['ra_corn3'] = '{0:.10f}'.format(angle360(a3e[idx_, idy_]))
             cell[icell]['dec_corn3'] = '{0:.10f}'.format(d3e[idx_, idy_])
-            cell[icell]['ra_corn4'] = '{0:.10f}'.format(a4e[idx_, idy_])
+            cell[icell]['ra_corn4'] = '{0:.10f}'.format(angle360(a4e[idx_, idy_]))
             cell[icell]['dec_corn4'] = '{0:.10f}'.format(d4e[idx_, idy_])
             # Concatenate cells to the cells from previous tiles
         cells = np.concatenate([cells, cell])
@@ -609,30 +603,6 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         afout = asdf.AsdfFile()
         afout.tree['roman'] = skycellref
         afout.write_to(outfile)
-    #roman = asdf.tagged.TaggedDict()
-    #instrument = {'name':'WFI'}
-    #meta = {'author': "Dario Fadda",
-    #        'description':"Skycells covering the celestial sphere",
-    #        'homepage': "http://github.com/spacetelescope/skymap",
-    #        'instrument': instrument,
-    #        'nxy_skycell': nxy,
-    #        'origin': 'STSCI',
-    #        'pedigree':'GROUND',
-    #        'plate_scale': pixsize,
-    #        'reftype': 'SKYCELLS',
-    #        'skycell_border_pixels': border,
-    #        'telescope': 'ROMAN',
-    #        'useafter': startdate,
-    #        }
-    #roman['meta'] = meta
-    #roman['projection_regions'] = tiles
-    #roman['skycells'] = cells
-    #roman['datamodel_name'] = "RomanSkycellsRefModel"
-    #tree = {
-    #"roman": roman,
-    #}
-    #ff = asdf.AsdfFile(tree)
-    #ff.write_to(outfile)
     return 1
 
 def plotskytile(skymap, itile, distortion=False):
@@ -648,35 +618,30 @@ def plotskytile(skymap, itile, distortion=False):
     c0 = tile['ra_tangent']
 
     if itile in [0,len(skytiles)-1]:
-        dd = 0.04
         fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
         for c in cells:
-            cosfac = np.cos(c['dec_corn1'] * np.pi/180)
             c1 = c['ra_corn1']
             c2 = c['ra_corn2']
             c3 = c['ra_corn3']
             c4 = c['ra_corn4']
             if itile == 0:
-                d1 = 90-c['dec_corn1']
-                d2 = 90-c['dec_corn2']
-                d3 = 90-c['dec_corn3']
-                d4 = 90-c['dec_corn4']
+                d1 = 90 - c['dec_corn1']
+                d2 = 90 - c['dec_corn2']
+                d3 = 90 - c['dec_corn3']
+                d4 = 90 - c['dec_corn4']
             else:
-                d1 = c['dec_corn1']
-                d2 = c['dec_corn2']
-                d3 = c['dec_corn3']
-                d4 = c['dec_corn4']
+                d1 = 90 + c['dec_corn1']
+                d2 = 90 + c['dec_corn2']
+                d3 = 90 + c['dec_corn3']
+                d4 = 90 + c['dec_corn4']
             ax.plot(np.array([c1, c2, c3, c4, c1])* np.pi/180,
                     [d1, d2, d3, d4, d1], color='skyblue')
-            ac = c['ra_center']* np.pi/180
-            dc = 90-c['dec_center']
-            orient = (90 - c['orientat']) * np.pi/180
         angle = np.arange(0,2*np.pi,0.01)
         print('Dec max,min is: ', tile['dec_max'], tile['dec_min'])
         if itile == 0:
             dec = 90-tile['dec_min']
         else:
-            dec = tile['dec_max']
+            dec = 90+tile['dec_max']
         ax.plot(angle, dec*np.ones(len(angle)),color='red')
     else:
         fig, ax = plt.subplots()
@@ -722,8 +687,6 @@ def plotskytile(skymap, itile, distortion=False):
         a4, d4 = a2[::-1], r1*dmin
         aa = np.concatenate([a1,a2,a3,a4])
         dd = np.concatenate([d1,d2,d3,d4])
-        #aa = [tile['ra_min'],tile['ra_min'],tile['ra_max'],tile['ra_max'],tile['ra_min']]
-        #dd = [tile['dec_min'],tile['dec_max'],tile['dec_max'],tile['dec_min'],tile['dec_min']]
         if distortion:
             aa = c0 + (np.array(aa) - c0) * np.cos(dd * np.pi/180)
         ax.plot(aa,dd,color='red')
