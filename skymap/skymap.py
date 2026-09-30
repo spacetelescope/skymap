@@ -381,7 +381,7 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax, pixsize=0.055,
          cellsize      sky cell size in pixels (default is 4800)
          border        border of sky cell overlapping adjacent cells in pixels (default is 100)
          outfile       name of ASDF output file 
-         vparity       RA increase direction (-1 is the astronomical standard, East on the left, RA increases on the left)
+         vparity       RA increase direction (-1 is the astronomical standard (E left - N up), RA increases towards the left)
     """
     #from astropy.wcs import WCS
     from astropy.modeling import models
