@@ -368,7 +368,8 @@ def angle360(x):
         x -= 360
     return x
 
-def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=4800, border=100, outfile='skymap.asdf'):
+def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax, pixsize=0.055, 
+               cellsize=4800, border=100, outfile='skymap.asdf', vparity=-1):
     """
     Generate an asdf file with the metadata of all the skycell files for all the tiles.
     Input:
@@ -380,6 +381,7 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
          cellsize      sky cell size in pixels (default is 4800)
          border        border of sky cell overlapping adjacent cells in pixels (default is 100)
          outfile       name of ASDF output file 
+         vparity       RA increase direction (-1 is the astronomical standard, East on the left, RA increases on the left)
     """
     #from astropy.wcs import WCS
     from astropy.modeling import models
@@ -440,8 +442,8 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
     nxy = cellsize + border * 2
     # Grid of cells
     n = 35  # enough to cover typical N=13 tile size with nx=4800
-    row, col = np.indices((2*n+1, 2*n+1))
-    row, col = row - n, col - n
+    col, row = np.indices((2*n+1, 2*n+1))
+    col, row = vparity * (col - n), row - n
     # Name format
     namefmt = '{0:03d}{1:s}{2:02d}x{3:02d}y{4:02d}'
     # Tiles and cells structured numpy arrays
@@ -471,9 +473,10 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         # Make nx and ny even number
         nx = nx // 2 * 2
         ny = ny // 2 * 2
+        # GWCS model from https://gwcs.readthedocs.io/en/stable/gwcs/constructing_gwcs_models.html
         x0t, y0t = (nx - 1) / 2, (ny - 1) / 2
         pixelshift = models.Shift(-x0t) & models.Shift(-y0t)
-        pixelscale = models.Scale(pix) & models.Scale(pix) # 0.1 arcsec/pixel
+        pixelscale = models.Scale(vparity * pix) & models.Scale(pix) # 0.1 arcsec/pixel
         tangent_projection = models.Pix2Sky_TAN()
         celestial_rotation = models.RotateNative2Celestial(ra0, dec0, 180.)
         det2sky = pixelshift | pixelscale | tangent_projection | celestial_rotation
@@ -484,10 +487,10 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         x0, y0 = col * cellsize + x0t, row * cellsize + y0t
         
         # Cell corners
-        x1, y1 = x0 - hcellsize, y0 - hcellsize
-        x2, y2 = x0 + hcellsize, y0 - hcellsize
-        x3, y3 = x0 + hcellsize, y0 + hcellsize
-        x4, y4 = x0 - hcellsize, y0 + hcellsize
+        x1, y1 = x0 - vparity * hcellsize, y0 - hcellsize
+        x2, y2 = x0 + vparity * hcellsize, y0 - hcellsize
+        x3, y3 = x0 + vparity * hcellsize, y0 + hcellsize
+        x4, y4 = x0 - vparity * hcellsize, y0 + hcellsize
         # Extended cell corners (including the overlap with contiguous cells)
         x1e, y1e = x1 - border, y1 - border
         x2e, y2e = x2 + border, y2 - border
@@ -556,12 +559,13 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax,pixsize=0.055, cellsize=
         for icell, (idx_, idy_) in enumerate(zip(idx, idy)):
             # Let's assume that (50,50) is the coordinates of the central cell
             # This is done to avoid signs in the x,y coordinates of a cell
-            x0_, y0_ = 50+row[idx_, idy_], 50+col[idx_, idy_]
+            #x0_, y0_ = 50+row[idx_, idy_], 50+col[idx_, idy_]
+            x0_, y0_ = 50 + col[idx_, idy_], 50 + row[idx_, idy_]
             cell[icell]['name'] = namefmt.format(ra0_, dsign, dec0_, x0_, y0_)
             cell[icell]['ra_center'] = '{0:.17g}'.format(angle360(a0[idx_, idy_])) # cell center
             cell[icell]['dec_center'] = '{0:.17g}'.format(d0[idx_, idy_])
             cell[icell]['orientat'] = ra0 - a0[idx_, idy_] # orientation wrt tile
-            xpix = x0t - x0[idx_, idy_] + npix
+            xpix = x0t - x0[idx_, idy_] + vparity * npix
             ypix = y0t - y0[idx_, idy_] + npix
             cell[icell]['x_tangent'] = xpix # position of tile center
             cell[icell]['y_tangent'] = ypix
