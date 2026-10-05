@@ -443,6 +443,7 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax, pixsize=0.055,
     # Grid of cells
     n = 35  # enough to cover typical N=13 tile size with nx=4800
     col, row = np.indices((2*n+1, 2*n+1))
+    # col, row relative to center 
     col, row = col - n, row - n
     # Name format
     namefmt = '{0:03d}{1:s}{2:02d}x{3:02d}y{4:02d}'
