@@ -31,3 +31,9 @@ cd notebook
 
 jupyter-lab Skymap.ipynb
 
+# Updating
+
+In the case the local environment is older than the most current version, one can update the environment with the command:
+
+conda env update --file environment.yml --prune
+
