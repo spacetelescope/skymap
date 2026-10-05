@@ -393,7 +393,7 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax, pixsize=0.055,
     import numpy as np
     from astropy.time import Time
     import asdf
-    import roman_datamodels.stnode as stnode
+    import roman_datamodels._stnode as stnode
 
     
     d = date(2025, 1, 1)
@@ -443,7 +443,7 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax, pixsize=0.055,
     # Grid of cells
     n = 35  # enough to cover typical N=13 tile size with nx=4800
     col, row = np.indices((2*n+1, 2*n+1))
-    col, row = vparity * (col - n), row - n
+    col, row = col - n, row - n
     # Name format
     namefmt = '{0:03d}{1:s}{2:02d}x{3:02d}y{4:02d}'
     # Tiles and cells structured numpy arrays
@@ -487,10 +487,10 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax, pixsize=0.055,
         x0, y0 = col * cellsize + x0t, row * cellsize + y0t
         
         # Cell corners
-        x1, y1 = x0 - vparity * hcellsize, y0 - hcellsize
-        x2, y2 = x0 + vparity * hcellsize, y0 - hcellsize
-        x3, y3 = x0 + vparity * hcellsize, y0 + hcellsize
-        x4, y4 = x0 - vparity * hcellsize, y0 + hcellsize
+        x1, y1 = x0 - hcellsize, y0 - hcellsize
+        x2, y2 = x0 + hcellsize, y0 - hcellsize
+        x3, y3 = x0 + hcellsize, y0 + hcellsize
+        x4, y4 = x0 - hcellsize, y0 + hcellsize
         # Extended cell corners (including the overlap with contiguous cells)
         x1e, y1e = x1 - border, y1 - border
         x2e, y2e = x2 + border, y2 - border
@@ -565,7 +565,7 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax, pixsize=0.055,
             cell[icell]['ra_center'] = '{0:.17g}'.format(angle360(a0[idx_, idy_])) # cell center
             cell[icell]['dec_center'] = '{0:.17g}'.format(d0[idx_, idy_])
             cell[icell]['orientat'] = ra0 - a0[idx_, idy_] # orientation wrt tile
-            xpix = x0t - x0[idx_, idy_] + vparity * npix
+            xpix = x0t - x0[idx_, idy_] + npix
             ypix = y0t - y0[idx_, idy_] + npix
             cell[icell]['x_tangent'] = xpix # position of tile center
             cell[icell]['y_tangent'] = ypix
