@@ -587,7 +587,7 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax, pixsize=0.055,
     meta = {
         "reftype": "SKYCELLS",
         "pedigree": "GROUND",
-        "description": "Skycells covering the celestial sphere",
+        "description": "Roman Telescope has adopted a tessellation scheme of the celestial sphere to obtain mosaics stored in the Roman archive. This tessellation partitions the sphere into 4058 sky tiles whose centers and limits in declination are defined by a Healpix double tessellation scheme with Nside = 13.",
         "author": "Dario Fadda",
         "useafter": Time(startdate),
         "telescope": "ROMAN",
@@ -595,6 +595,7 @@ def tiles2asdf(theta, phi, ramin, ramax, decmin, decmax, pixsize=0.055,
         "instrument": {
             "name": "WFI"
         },
+        "vparity": -1,
         "nxy_skycell": nxy,
         "skycell_border_pixels": border,
         "pixel_scale": pixsize,
